@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>โปรแกรมเปรียบเทียบเวลาจริงกับเวลากล้อง</title>
+  <style>
+    body { font-family: sans-serif; margin: 20px; }
+    input { width: 60px; margin: 2px; }
+    button { margin: 10px 5px; }
+    .section { margin-bottom: 20px; }
+    textarea { width: 100%; height: 160px; white-space: pre-wrap; display: none; }
+    .credit { font-size: 0.9em; color: gray; margin-top: 10px; }
+    #report-section { border: 1px solid #ccc; padding: 10px; width: 100%; max-width: 600px; background: #f9f9f9; }
+    #report-text { white-space: pre-wrap; line-height: 1.6; font-family: monospace; }
+    #calculate-btn { font-size: 1.1em; padding: 10px 20px; background-color: #007acc; color: white; border: none; border-radius: 5px; }
+    #calculate-btn:hover { background-color: #005ea2; cursor: pointer; }
+    #extra-buttons { margin-top: 10px; display: none; }
+  </style>
+</head>
+<body>
+  <h2>📹 โปรแกรมเปรียบเทียบเวลาจริงกับเวลากล้องวงจรปิด</h2>
+  <div class="credit">จัดทำโดย "แมวดำ ๗ 🐈‍⬛"</div>
+
+  <div class="section">
+    <h4>📷 ชื่อกล้อง</h4>
+    <input id="camera_name" type="text" placeholder="ระบุชื่อกล้อง" style="width: 300px;">
+  </div>
+
+  <!-- เวลาจริง -->
+  <div class="section">
+    <h4>🕒 เวลาจริง (ปัจจุบัน)</h4>
+    วัน <input id="real_day" type="number"> เดือน <input id="real_month" type="number">
+    ปี <input id="real_year" type="number"> เวลา
+    <input id="real_hour" type="number"> : <input id="real_minute" type="number"> : <input id="real_second" type="number">
+  </div>
+
+  <!-- เวลาในกล้อง -->
+  <div class="section">
+    <h4>📷 เวลาในกล้องวงจรปิด</h4>
+    วัน <input id="cam_day" type="number"> เดือน <input id="cam_month" type="number">
+    ปี <input id="cam_year" type="number"> เวลา
+    <input id="cam_hour" type="number"> : <input id="cam_minute" type="number"> : <input id="cam_second" type="number">
+  </div>
+
+  <!-- ต้องการดูเหตุการณ์ย้อนหลัง -->
+  <div class="section">
+    <h4>🕵️ ต้องการดูเหตุการณ์จริงย้อนหลังเมื่อ</h4>
+    วัน <input id="target_day" type="number"> เดือน <input id="target_month" type="number">
+    ปี <input id="target_year" type="number"> เวลา
+    <input id="target_hour" type="number"> : <input id="target_minute" type="number"> : <input id="target_second" type="number">
+  </div>
+
+  <!-- เวลากล้องแสดงเมื่อพบเหตุการณ์ -->
+  <div class="section">
+    <h4>🛑 เวลาที่กล้องแสดงเมื่อพบเหตุการณ์</h4>
+    วัน <input id="event_day" type="number"> เดือน <input id="event_month" type="number">
+    ปี <input id="event_year" type="number"> เวลา
+    <input id="event_hour" type="number"> : <input id="event_minute" type="number"> : <input id="event_second" type="number">
+  </div>
+
+  <!-- ปุ่มหลัก -->
+  <button id="calculate-btn" onclick="calculate()">คำนวณ</button>
+  <button onclick="toggleExtraButtons()">🔧 ตัวเลือกเพิ่มเติม</button>
+
+  <!-- ปุ่มเพิ่มเติม -->
+  <div id="extra-buttons">
+    <button onclick="copyResult()">📋 คัดลอกรายงาน</button>
+    <button onclick="saveAsImage()">🖼️ บันทึกรายงานเป็นภาพ</button>
+    <button onclick="printReport()">🖨️ พิมพ์รายงาน</button>
+    <button onclick="clearAllFields()">🧹 ล้างข้อมูล</button>
+    <button onclick="setNowToAllFields()">🕒 ตั้งเวลาเป็นตอนนี้</button>
+  </div>
+
+  <!-- รายงานผล -->
+  <div class="section" id="report-section">
+    <h4>📄 ผลการคำนวณ</h4>
+    <div id="report-text"></div>
+    <textarea id="result" readonly></textarea>
+    <div class="credit">จัดทำโดย "แมวดำ ๗ 🐈‍⬛"</div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script>
+    let locationLink = "";
+
+    function toggleExtraButtons() {
+      const extra = document.getElementById("extra-buttons");
+      extra.style.display = (extra.style.display === "none" || extra.style.display === "") ? "block" : "none";
+    }
+
+    function getDateTime(prefix) {
+      const d = id => parseInt(document.getElementById(prefix + "_" + id).value) || 0;
+      return new Date(d("year"), d("month") - 1, d("day"), d("hour"), d("minute"), d("second"));
+    }
+
+    function formatDiff(diff) {
+      const abs = Math.abs(diff);
+      const sign = diff < 0 ? "เร็ว" : "ช้า";
+      const d = Math.floor(abs / 86400000);
+      const h = Math.floor((abs % 86400000) / 3600000);
+      const m = Math.floor((abs % 3600000) / 60000);
+      const s = Math.floor((abs % 60000) / 1000);
+      return `📌 เวลากล้อง ${sign}กว่าเวลาจริง ${d} วัน ${h} ชั่วโมง ${m} นาที ${s} วินาที`;
+    }
+
+    function formatDate(date) {
+      return date.toLocaleString("th-TH", {
+        year: 'numeric', month: 'long', day: 'numeric',
+        hour: '2-digit', minute: '2-digit', second: '2-digit',
+        hour12: false
+      });
+    }
+
+    function calculate() {
+      const real = getDateTime("real");
+      const cam = getDateTime("cam");
+      const target = getDateTime("target");
+      const eventCam = getDateTime("event");
+      const diff = real - cam;
+      const camAtTarget = new Date(target - diff);
+      const realAtEvent = new Date(eventCam.getTime() + diff);
+      const camName = document.getElementById("camera_name").value || "(ไม่ระบุชื่อกล้อง)";
+
+      let report = "📝 การคำนวณเวลากล้องวงจรปิด\n";
+      report += `📷 ชื่อกล้อง: ${camName}\n\n`;
+      report += `🕒 เวลาจริง (ปัจจุบัน): ${formatDate(real)}\n`;
+      report += `📷 เวลาในกล้อง: ${formatDate(cam)}\n`;
+      report += `${formatDiff(diff)}\n\n`;
+      report += `🕵️ หากต้องการดูเหตุการณ์เมื่อ ${formatDate(target)}\n`;
+      report += `👉 ต้องเปิดกล้องที่เวลา: ${formatDate(camAtTarget)}\n\n`;
+
+      if (eventCam.getFullYear() !== 2000 || eventCam.getMonth() !== 0 || eventCam.getDate() !== 1) {
+        report += `📍 เวลาที่กล้องแสดงเมื่อพบเหตุการณ์: ${formatDate(eventCam)}\n`;
+        report += `🕐 เวลาจริงของเหตุการณ์นั้นคือ: ${formatDate(realAtEvent)}\n`;
+      }
+
+      report += `\n📌 จัดทำโดย \"แมวดำ ๗ 🐈‍⬛\"`;
+      document.getElementById("result").value = report;
+      document.getElementById("report-text").innerText = report;
+    }
+
+    function copyResult() {
+      const r = document.getElementById("result");
+      r.style.display = 'block';
+      r.select();
+      document.execCommand("copy");
+      r.style.display = 'none';
+      alert("📋 คัดลอกรายงานเรียบร้อยแล้ว");
+    }
+
+
+    function saveAsImage() {
+      html2canvas(document.getElementById("report-section")).then(canvas => {
+        const link = document.createElement('a');
+        link.download = "cctv-report.png";
+        link.href = canvas.toDataURL();
+        link.click();
+      });
+    }
+
+    function printReport() {
+      const content = document.getElementById("report-section").innerHTML;
+      const original = document.body.innerHTML;
+      document.body.innerHTML = content;
+      window.print();
+      document.body.innerHTML = original;
+      window.location.reload();
+    }
+
+    function clearAllFields() {
+      ["real", "cam", "target", "event"].forEach(prefix => {
+        ["day", "month", "year", "hour", "minute", "second"].forEach(suffix => {
+          document.getElementById(`${prefix}_${suffix}`).value = '';
+        });
+      });
+      document.getElementById("camera_name").value = '';
+      document.getElementById("report-text").innerText = '';
+      document.getElementById("result").value = '';
+    }
+
+    
+    function setTodayToAllDateFields() {
+      const now = new Date();
+      const d = now.getDate();
+      const m = now.getMonth() + 1;
+      const y = now.getFullYear();
+      ["real", "cam", "target", "event"].forEach(p => {
+        document.getElementById(p + "_day").value = d;
+        document.getElementById(p + "_month").value = m;
+        document.getElementById(p + "_year").value = y;
+      });
+    }
+
+    function setNowToAllFields() {
+      const now = new Date();
+      const d = now.getDate();
+      const m = now.getMonth() + 1;
+      const y = now.getFullYear();
+      const h = now.getHours();
+      const min = now.getMinutes();
+      const s = now.getSeconds();
+      ["real", "cam", "target", "event"].forEach(p => {
+        document.getElementById(p + "_day").value = d;
+        document.getElementById(p + "_month").value = m;
+        document.getElementById(p + "_year").value = y;
+        document.getElementById(p + "_hour").value = h;
+        document.getElementById(p + "_minute").value = min;
+        document.getElementById(p + "_second").value = s;
+      });
+    }
+
+    window.onload = function () {
+      setTodayToAllDateFields();
+      getLocation();
+    }
+  </script>
+</body>
+</html>
